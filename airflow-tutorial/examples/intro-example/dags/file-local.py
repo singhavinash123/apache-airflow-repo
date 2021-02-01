@@ -1,6 +1,9 @@
 import airflow
 import logging
 import os
+import shutil
+from pathlib import Path
+
 
 from airflow import DAG
 from airflow.models import DAG
@@ -18,18 +21,28 @@ args = {
 
 dag = DAG(dag_id='file-sensing-local',default_args=args,schedule_interval=None)
 
-def print_file_content(**context):
-    hook = FSHook('local_file_system')
-    path = os.path.join(hook.get_path(), 'test.txt')
-    with open(path, 'r') as fp:
-        print(fp.read())
-    os.remove(path)
 
+def print_file_content(**context):
+    foldername = "/processed"
+    hook = FSHook('local_file_system')
+
+    # substring(0 , hook.get_path().lastIndexOf())
+    parentPath = str(Path(hook.get_path()).parent)
+    # print(path.parent)
+
+    if not os.path.exists(parentPath + foldername):
+	    os.makedirs(parentPath +  foldername)
+
+    for file in os.listdir(hook.get_path()):
+        if file.endswith(".txt"):
+            with open(hook.get_path()+"/"+file, 'r') as fp:
+                print(fp.read())
+                shutil.move(hook.get_path()  +"/" + file  , parentPath + foldername + "/" + file)
 
 with dag:
     sensing_task = FileSensor(
         task_id='file-from-local',
-        filepath='test.txt',
+        filepath='',
         fs_conn_id='local_file_system',
         poke_interval=10        
     )
