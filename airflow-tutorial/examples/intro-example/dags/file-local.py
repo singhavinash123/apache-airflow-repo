@@ -25,11 +25,7 @@ dag = DAG(dag_id='file-sensing-local',default_args=args,schedule_interval=None)
 def print_file_content(**context):
     foldername = "/processed"
     hook = FSHook('local_file_system')
-
-    # substring(0 , hook.get_path().lastIndexOf())
     parentPath = str(Path(hook.get_path()).parent)
-    # print(path.parent)
-
     if not os.path.exists(parentPath + foldername):
 	    os.makedirs(parentPath +  foldername)
 

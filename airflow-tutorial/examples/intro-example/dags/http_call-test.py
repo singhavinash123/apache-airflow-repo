@@ -10,15 +10,38 @@ from airflow.utils.dates import days_ago
 from airflow.operators.python_operator import PythonOperator
 from airflow.models import Variable
 
+
+def callable_func(context):
+    print(context)
+    dag_id = context.get('task_instance').dag_id
+    task_id = context.get('task_instance').task_id
+
+    email_title = "Airflow Task {task_id} Success".format(task_id = task_id)
+    email_body = "{task_id} in {dag_id} Success.".format(task_id = task_id, dag_id = dag_id)
+    to = "avinash.kachhwaha@oracle.com"
+    send_email(to, email_title, email_body)
+
+def error_callable_func(context):
+    print(context)
+    dag_id = context.get('task_instance').dag_id
+    task_id = context.get('task_instance').task_id
+
+    email_title = "Airflow Task {task_id} Failed".format(task_id = task_id)
+    email_body = "{task_id} in {dag_id} Failed.".format(task_id = task_id, dag_id = dag_id)
+    to = "avinash.kachhwaha@oracle.com"
+    send_email(to, email_title, email_body)
+    
 default_args = {
     'owner': 'airflow',
     'depends_on_past': False,
-    'email': ['airflow@example.com'],
+    'email': ['avinash.kachhwaha@oracle.com'],
     'email_on_failure': False,
     'email_on_retry': False,
     'retries': 1,
-    'retry_delay': timedelta(minutes=5),
-    'provide_context': True
+    'retry_delay': timedelta(minutes=1),
+    'provide_context': True,
+    'on_success_callback': callable_func,
+    'on_failure_callback' : error_callable_func
 }
 
 dag = DAG(
@@ -37,6 +60,25 @@ dag.doc_md = __doc__
 #     print(import_body)
    
 
+from airflow.utils.email import send_email
+
+def notify_email(context, **kwargs):
+    """Send custom email alerts."""
+
+    # email title.
+    title = "Airflow alert: {task_name} Failed".format(**context)
+
+    # email contents
+    body = """
+    Hi Everyone, <br>
+    <br>
+    There's been an error in the {task_name} job.<br>
+    <br>
+    Forever yours,<br>
+    Airflow bot <br>
+    """.format(**context)
+
+    send_email('you_email@address.com', title, body)
 
 # transform the json here and save the content to a file
 def save_emp_json(**kwargs):
@@ -52,7 +94,7 @@ def save_emp_json(**kwargs):
  # transform the json here and save the content to a file
 task_save_employee = SimpleHttpOperator(
     task_id='save_employee',
-    http_conn_id='atlassian_marketplace',
+    http_conn_id='rest-connection',
     endpoint='/save',
     method="POST",
     data=json.dumps({"name": "avinash singh"}),
@@ -65,7 +107,7 @@ task_save_employee = SimpleHttpOperator(
 
 task_get_all_employee = SimpleHttpOperator(
     task_id='get_all_employee',
-    http_conn_id='atlassian_marketplace',
+    http_conn_id='rest-connection',
     endpoint='/get-all',
     method="GET",
     headers={"Content-Type": "application/json"},
@@ -77,7 +119,7 @@ task_get_all_employee = SimpleHttpOperator(
 
 task_get_byid_employee = SimpleHttpOperator(
     task_id='get-by-id-employee',
-    http_conn_id='atlassian_marketplace',
+    http_conn_id='rest-connection',
     endpoint="/get-by-id/{empId}/employee".format(empId = Variable.get("id")),
     method="GET",
     headers={"Content-Type": "application/json"},
@@ -88,7 +130,7 @@ task_get_byid_employee = SimpleHttpOperator(
 
 # task_update_employee = SimpleHttpOperator(
 #     task_id='update-employee',
-#     http_conn_id='atlassian_marketplace',
+#     http_conn_id='rest-connection',
 #     endpoint="/update?id={empId}".format(empId = Variable.get("id")),
 #     method="PUT",
 #     headers={"Content-Type": "application/json"},
@@ -101,11 +143,12 @@ task_get_byid_employee = SimpleHttpOperator(
 # [START howto_operator_http_http_sensor_check]
 task_http_sensor_check = HttpSensor(
     task_id='api_health_check',
-    http_conn_id='atlassian_marketplace',
+    http_conn_id='rest-connection',
     endpoint='/',
     request_params={},
     # response_check=lambda response: "httpbin" in response.text,
     poke_interval=5,
+    # on_failure_callback=notify_email,
     dag=dag,
 )
 
