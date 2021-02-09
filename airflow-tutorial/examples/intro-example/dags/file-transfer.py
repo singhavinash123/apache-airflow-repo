@@ -12,7 +12,7 @@ from airflow.contrib.sensors.file_sensor import FileSensor
 from airflow.operators.python_operator import PythonOperator
 
 args = {
-    'owner' : 'airflow',
+    'owner' : 'avinash',
     'start_date': days_ago(1)
 }
 

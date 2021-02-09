@@ -13,8 +13,24 @@ from airflow.models import Variable
 
 from airflow.hooks.base_hook import BaseHook
 from airflow.contrib.operators.slack_webhook_operator import SlackWebhookOperator
+from airflow import settings
+from airflow.models import Connection
 
 SLACK_CONN_ID = 'slack-notification'
+TO_MAIL = "avinash.kachhwaha@oracle.com"
+conn_id = "rest-connection1"
+host="http://192.168.225.42:8181/employee"
+
+conn = Connection(conn_id=conn_id,conn_type="http",host=host,) #create a connection object
+session = settings.Session()
+conn_name = session.query(Connection).filter(Connection.conn_id == conn.conn_id).first()
+
+if str(conn_name):
+    session.delete(conn_name)    
+    session.add(conn)
+    session.commit()  
+    session.close()
+
 def task_fail_slack_alert(context):
     slack_webhook_token = BaseHook.get_connection(SLACK_CONN_ID).password
     slack_msg = """
@@ -90,7 +106,7 @@ def callable_func(context):
     </tr>
     </tbody></table>
     """.format(task_id = task_id, dag_id = dag_id,log_url=log_url,exec_date=exec_date)
-    to = "avinash.kachhwaha@oracle.com"
+    to = TO_MAIL
     send_email(to, email_title, email_body)
 
 def error_callable_func(context):
@@ -109,7 +125,7 @@ def error_callable_func(context):
     </span>
     <br>Log Url: <a href="{log_url}">Link</a><br>
     """.format(task_id = task_id, dag_id = dag_id,log_url=log_url)
-    to = "avinash.kachhwaha@oracle.com"
+    to = TO_MAIL
     send_email(to, email_title, email_body)
     
 default_args = {
@@ -122,7 +138,7 @@ default_args = {
     'retry_delay': timedelta(minutes=1),
     'provide_context': True,
     'on_success_callback': callable_func,
-    'on_failure_callback' : task_fail_slack_alert
+    'on_failure_callback' : task_fail_slack_alert,
     # 'on_failure_callback' : error_callable_func
 
 }
@@ -132,6 +148,8 @@ dag = DAG(
     default_args=default_args,
     tags=['example'],
     start_date=datetime.datetime.now() - datetime.timedelta(days=1)
+        # schedule_interval='*/1 * * * *',
+
     )
 
 dag.doc_md = __doc__
@@ -144,24 +162,6 @@ dag.doc_md = __doc__
    
 
 from airflow.utils.email import send_email
-
-def notify_email(context, **kwargs):
-    """Send custom email alerts."""
-
-    # email title.
-    title = "Airflow alert: {task_name} Failed".format(**context)
-
-    # email contents
-    body = """
-    Hi Everyone, <br>
-    <br>
-    There's been an error in the {task_name} job.<br>
-    <br>
-    Forever yours,<br>
-    Airflow bot <br>
-    """.format(**context)
-
-    send_email('you_email@address.com', title, body)
 
 # transform the json here and save the content to a file
 def save_emp_json(**kwargs):
@@ -177,7 +177,7 @@ def save_emp_json(**kwargs):
  # transform the json here and save the content to a file
 task_save_employee = SimpleHttpOperator(
     task_id='save_employee',
-    http_conn_id='rest-connection',
+    http_conn_id=conn_id,
     endpoint='/save',
     method="POST",
     data=json.dumps({"name": "avinash singh"}),
@@ -190,7 +190,7 @@ task_save_employee = SimpleHttpOperator(
 
 task_get_all_employee = SimpleHttpOperator(
     task_id='get_all_employee',
-    http_conn_id='rest-connection',
+    http_conn_id=conn_id,
     endpoint='/get-all',
     method="GET",
     headers={"Content-Type": "application/json"},
@@ -202,7 +202,7 @@ task_get_all_employee = SimpleHttpOperator(
 
 task_get_byid_employee = SimpleHttpOperator(
     task_id='get-by-id-employee',
-    http_conn_id='rest-connection',
+    http_conn_id=conn_id,
     endpoint="/get-by-id/{empId}/employee".format(empId = Variable.get("id")),
     method="GET",
     headers={"Content-Type": "application/json"},
@@ -226,7 +226,7 @@ task_get_byid_employee = SimpleHttpOperator(
 # [START howto_operator_http_http_sensor_check]
 task_http_sensor_check = HttpSensor(
     task_id='api_health_check',
-    http_conn_id='rest-connection',
+    http_conn_id=conn_id,
     endpoint='/',
     request_params={},
     # response_check=lambda response: "httpbin" in response.text,
@@ -250,4 +250,3 @@ save_employee = PythonOperator(
 
 task_http_sensor_check >> task_save_employee >> save_employee >> task_get_byid_employee
 save_employee >> task_get_all_employee
-# save_employee >> task_update_employee >> task_get_byid_employee

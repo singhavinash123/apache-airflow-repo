@@ -2,6 +2,8 @@ import airflow
 import logging
 import os
 import shutil
+import json
+
 from pathlib import Path
 
 
@@ -13,9 +15,25 @@ from airflow.contrib.hooks.fs_hook import FSHook
 
 from airflow.contrib.sensors.file_sensor import FileSensor
 from airflow.operators.python_operator import PythonOperator
+from airflow import settings
+from airflow.models import Connection
+
+conn_id = "local_file_system1"
+extra=json.dumps({"path":"/usr/local/airflow/dags/request"})
+
+conn = Connection(conn_id=conn_id,conn_type="fs",extra=extra) #create a connection object
+session = settings.Session()
+conn_name = session.query(Connection).filter(Connection.conn_id == conn.conn_id).first()
+
+if str(conn_name):
+    session.delete(conn_name) 
+    session.add(conn)
+    session.commit()
+
+
 
 args = {
-    'owner' : 'airflow',
+    'owner' : 'avinash',
     'start_date': days_ago(1)
 }
 
@@ -24,8 +42,9 @@ dag = DAG(dag_id='file-sensing-local',default_args=args,schedule_interval=None)
 
 def print_file_content(**context):
     foldername = "/processed"
-    hook = FSHook('local_file_system')
+    hook = FSHook(conn_id)
     parentPath = str(Path(hook.get_path()).parent)
+    print(parentPath)
     if not os.path.exists(parentPath + foldername):
 	    os.makedirs(parentPath +  foldername)
 
@@ -34,12 +53,14 @@ def print_file_content(**context):
             with open(hook.get_path()+"/"+file, 'r') as fp:
                 print(fp.read())
                 shutil.move(hook.get_path()  +"/" + file  , parentPath + foldername + "/" + file)
+        else:
+            os.remove(os.path.join(hook.get_path(), file))
 
 with dag:
     sensing_task = FileSensor(
         task_id='file-from-local',
         filepath='',
-        fs_conn_id='local_file_system',
+        fs_conn_id=conn_id,
         poke_interval=10        
     )
 
