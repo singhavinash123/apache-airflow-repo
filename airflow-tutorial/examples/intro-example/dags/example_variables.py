@@ -1,6 +1,8 @@
 from __future__ import print_function
 
 from datetime import datetime
+import datetime
+
 
 from airflow import DAG
 from airflow.models import Variable
@@ -8,14 +10,14 @@ from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.bash_operator import BashOperator
 
 default_args = {
-    'owner': 'airflow',
-    'start_date': datetime(2019, 2, 15),
-    'end_date': datetime(2019, 2, 15)    
+    'owner': 'airflow'
 }
 
 dag = DAG('example_variables', 
     schedule_interval="@once", 
-    default_args=default_args)
+    default_args=default_args,
+    start_date=datetime.datetime.now() - datetime.timedelta(days=1)
+)
 
 
 # Config variables

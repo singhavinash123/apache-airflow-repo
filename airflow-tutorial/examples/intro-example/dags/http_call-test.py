@@ -17,17 +17,19 @@ from airflow import settings
 from airflow.models import Connection
 
 SLACK_CONN_ID = 'slack-notification'
+SLACK_CONN_ID = 'slack-notification'
 TO_MAIL = "avinash.kachhwaha@oracle.com"
 conn_id = "rest-connection1"
-host="http://192.168.225.42:8181/employee"
+host="http://192.168.225.4:8181/employee"
 
 conn = Connection(conn_id=conn_id,conn_type="http",host=host,) #create a connection object
 session = settings.Session()
 conn_name = session.query(Connection).filter(Connection.conn_id == conn.conn_id).first()
 
-if str(conn_name):
-    session.delete(conn_name)    
+if str(conn_name) != str(conn_id):
+    # session.delete(conn_name)    
     session.add(conn)
+    # session.add(Variable(key="name", val="my value"))
     session.commit()  
     session.close()
 
