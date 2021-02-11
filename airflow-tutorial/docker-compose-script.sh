@@ -1,1 +1,1 @@
-sudo docker system prune -f; sudo docker-compose  -f docker-compose-app-server.yml up -d
+sudo docker system prune -f; sudo docker-compose  -f docker-compose.yml up -d
